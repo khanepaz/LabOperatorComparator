@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>مقایسه اپراتورهای آزمایش</title>
+  <!-- Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js "></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js "></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js "></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js "></script>
+  <link href="css/persianDatepicker-default.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body onload="initializeFont()">
+<div class="container">
+  <h1>سیستم مقایسه اپراتور ها - مقایسه دو جفتی</h1>
+  <h3>آزمایشگاه کنترل کیفیت</h3>
+  <div class="form-section">
+    <h2>اطلاعات آزمون</h2>
+    <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+      <div style="flex: 1; min-width: 200px;">
+        <label for="test-name">نام پارامترها:</label>
+        <input type="text" id="test-name" placeholder="مثال: YS, UTS, El" required />
+      </div>
+      <div style="flex: 1; min-width: 200px;">
+        <label for="sample-id">نام آزمون :</label>
+        <input type="text" id="sample-id" required />
+      </div>
+      <div style="flex: 1; min-width: 200px;">
+        <label for="sample-count">تعداد نمونه:</label>
+        <input type="number" id="sample-count" value="5" min="2" max="10" required />
+      </div>
+      <div style="flex: 1; min-width: 200px;">
+        <label for="supervisor">ناظر آزمایش:</label>
+        <input type="text" id="supervisor" required />
+      </div>
+      <div style="flex: 1; min-width: 200px;">
+        <label for="test-date">تاریخ آزمایش:</label>
+        <input type="text" id="test-date" class="form-control persian-datepicker" placeholder="انتخاب تاریخ (مثال: 1404/04/22)">
+      </div>
+    </div>
+    <button id="start-process">شروع فرآیند</button>
+  </div>
+  <!-- Dynamic Tables -->
+  <div class="form-section" id="data-section" style="display: none;">
+    <h2>داده‌های اپراتورها</h2>
+    <div class="operator-section">
+      <div class="operator-box">
+        <h3>اپراتور 1</h3>
+        <label for="operator1-name">نام اپراتور:</label>
+        <input type="text" id="operator1-name" required />
+        <table id="operator1-table">
+          <thead id="operator1-thead"></thead>
+          <tbody id="operator1-data"></tbody>
+        </table>
+      </div>
+      <div class="operator-box">
+        <h3>اپراتور 2</h3>
+        <label for="operator2-name">نام اپراتور:</label>
+        <input type="text" id="operator2-name" required />
+        <table id="operator2-table">
+          <thead id="operator2-thead"></thead>
+          <tbody id="operator2-data"></tbody>
+        </table>
+      </div>
+    </div>
+    <button id="calculate-btn">محاسبه نتایج</button>
+  </div>
+  <!-- Results Section -->
+  <div class="result-section" id="results" style="display: none;">
+    <h2>نتایج مقایسه آماری</h2>
+    <div class="chart-container">
+      <canvas id="comparison-chart"></canvas>
+    </div>
+    <table id="stat-results">
+      <thead>
+        <tr>
+          <th>پارامتر</th>
+          <th>میانگین 1</th>
+          <th>میانگین 2</th>
+          <th>انحراف معیار 1</th>
+          <th>انحراف معیار 2</th>
+          <th>t-test</th>
+          <th>f-test</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div id="interpretation" class="interpretation"></div>
+    <button id="export-pdf">خروجی PDF</button>
+  
+  </div>
+</div>
+
+<!-- Persian Datepicker JS -->
+<script src="js/jquery.min.js"></script>
+<script src="js/persian-date.js"></script>
+<script src="js/persianDatepicker.js"></script>
+<script>
+  $(document).ready(function () {
+    $("#test-date").persianDatepicker({
+      format: 'YYYY/MM/DD',
+      autoClose: true,
+      initialValue: false,
+      toolbox: {
+        calendarSwitch: {
+          enabled: false
+        }
+      },
+      observer: true,
+      altField: '#test-date',
+      altFormat: 'YYYY/MM/DD'
+    });
+  });
+</script>
+
+<script>
+  // Critical Values for t-test and F-test (95% confidence)
+  const criticalValues = {
+    2: { f: 161.4, t: 12.706 },
+    3: { f: 19.0, t: 4.303 },
+    4: { f: 9.28, t: 3.182 },
+    5: { f: 6.39, t: 2.776 },
+    6: { f: 5.05, t: 2.571 },
+    7: { f: 4.39, t: 2.447 },
+    8: { f: 3.97, t: 2.365 },
+    9: { f: 3.68, t: 2.306 },
+    10: { f: 3.48, t: 2.262 }
+  };
+
+  let doc;
+  function initializeFont() {
+    const { jsPDF } = window.jspdf;
+    doc = new jsPDF('p', 'pt', 'a4');
+    doc.addFileToVFS('B_Nazanin.ttf', fontBase64);
+    doc.addFont('B_Nazanin.ttf', 'B Nazanin', 'normal');
+    doc.setFont('B Nazanin');
+  }
+
+  function createDynamicTables() {
+    const parametersInput = document.getElementById("test-name").value;
+    const sampleCount = parseInt(document.getElementById("sample-count").value);
+    if (!parametersInput || sampleCount < 2 || sampleCount > 10) {
+      alert("لطفاً نام پارامترها را وارد کنید و تعداد نمونه بین 2 تا 10 باشد.");
+      return;
+    }
+    const parameters = parametersInput.split(",").map(p => p.trim());
+    const theadOp1 = document.getElementById("operator1-thead");
+    const tbodyOp1 = document.getElementById("operator1-data");
+    const theadOp2 = document.getElementById("operator2-thead");
+    const tbodyOp2 = document.getElementById("operator2-data");
+    theadOp1.innerHTML = "";
+    tbodyOp1.innerHTML = "";
+    theadOp2.innerHTML = "";
+    tbodyOp2.innerHTML = "";
+    const headerRow = `<tr><th>نمونه</th>${parameters.map(p => `<th>${p}</th>`).join("")}</tr>`;
+    theadOp1.innerHTML = headerRow;
+    theadOp2.innerHTML = headerRow;
+    for (let i = 1; i <= sampleCount; i++) {
+      const row = `<tr><td>${i}</td>${parameters.map(() => `<td><input type="number" step="0.01" class="data-input" required /></td>`).join("")}</tr>`;
+      tbodyOp1.innerHTML += row;
+      tbodyOp2.innerHTML += row;
+    }
+    document.getElementById("data-section").style.display = "block";
+  }
+
+  function collectOperatorData(tableId, parameters) {
+    const rows = document.querySelectorAll(`#${tableId} tr`);
+    const data = {};
+    parameters.forEach(p => data[p] = []);
+    rows.forEach(row => {
+      const inputs = row.querySelectorAll("input");
+      inputs.forEach((input, index) => {
+        const val = parseFloat(input.value);
+        if (!isNaN(val)) {
+          data[parameters[index]].push(val);
+        }
+      });
+    });
+    return data;
+  }
+
+  function calculateStatistics(data1, data2) {
+    const mean1 = data1.reduce((a, b) => a + b, 0) / data1.length;
+    const mean2 = data2.reduce((a, b) => a + b, 0) / data2.length;
+    const variance1 = data1.map(x => Math.pow(x - mean1, 2)).reduce((a, b) => a + b, 0) / (data1.length - 1);
+    const variance2 = data2.map(x => Math.pow(x - mean2, 2)).reduce((a, b) => a + b, 0) / (data2.length - 1);
+    const std1 = Math.sqrt(variance1);
+    const std2 = Math.sqrt(variance2);
+    const tValue = (mean1 - mean2) / Math.sqrt((variance1 / data1.length) + (variance2 / data2.length));
+    const fValue = variance1 > variance2 ? variance1 / variance2 : variance2 / variance1;
+    return { mean1, mean2, std1, std2, tValue, fValue };
+  }
+
+  function displayResults(op1Name, op2Name, stats, parameters, tCritical, fCritical) {
+    const resultsTable = document.getElementById("stat-results").querySelector("tbody");
+    resultsTable.innerHTML = "";
+    parameters.forEach(param => {
+      const stat = stats[param];
+      resultsTable.innerHTML += `
+        <tr>
+          <td>${param}</td>
+          <td>${stat.mean1.toFixed(2)}</td>
+          <td>${stat.mean2.toFixed(2)}</td>
+          <td>${stat.std1.toFixed(2)}</td>
+          <td>${stat.std2.toFixed(2)}</td>
+          <td>${stat.tValue.toFixed(3)}</td>
+          <td>${stat.fValue.toFixed(3)}</td>
+        </tr>
+      `;
+    });
+    let accuracyOk = true, precisionOk = true;
+    for (const param in stats) {
+      if (Math.abs(stats[param].tValue) > tCritical) accuracyOk = false;
+      if (stats[param].fValue > fCritical) precisionOk = false;
+    }
+    let conclusion = "";
+    if (accuracyOk && precisionOk) {
+      conclusion = "هر دو اپراتور از دقت و صحت مناسبی برخوردار هستند.";
+    } else if (accuracyOk && !precisionOk) {
+      conclusion = "اپراتورها از نظر صحت قابل قبول هستند اما از نظر دقت تفاوت وجود دارد.";
+    } else if (!accuracyOk && precisionOk) {
+      conclusion = "اپراتورها از نظر دقت قابل قبول هستند اما از نظر صحت تفاوت وجود دارد.";
+    } else {
+      conclusion = "اپراتورها در دقت و صحت تفاوت‌های معناداری دارند.";
+    }
+    document.getElementById("interpretation").innerHTML = `
+      <h3>تفسیر نتایج</h3>
+      <p><strong>مقایسه دقت:</strong> اگر مقدار F-test کمتر از ${fCritical.toFixed(2)} باشد، دقت مشابه است.</p>
+      <p><strong>مقایسه صحت:</strong> اگر مقدار t-test کمتر از ${tCritical.toFixed(2)} باشد، صحت مشابه است.</p>
+      <p><strong>نتیجه‌گیری:</strong> ${conclusion}</p>
+    `;
+    document.getElementById("results").style.display = "block";
+  }
+
+  function createComparisonChart(op1Name, op2Name, stats, parameters) {
+    const ctx = document.getElementById("comparison-chart").getContext("2d");
+    if (window.comparisonChart) window.comparisonChart.destroy();
+    const datasets = [
+      {
+        label: op1Name,
+        backgroundColor: "rgba(255, 99, 132, 0.7)",
+        data: parameters.map(param => stats[param].mean1),
+      },
+      {
+        label: op2Name,
+        backgroundColor: "rgba(52, 152, 219, 0.7)",
+        data: parameters.map(param => stats[param].mean2),
+      }
+    ];
+    window.comparisonChart = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: parameters,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          title: { display: true, text: `مقایسه اپراتورها (${parameters.join(", ")})` },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const param = parameters[context.dataIndex];
+                const std = context.datasetIndex === 0 ? stats[param].std1 : stats[param].std2;
+                return `${context.dataset.label}: ${context.raw.toFixed(2)} (انحراف معیار: ${std.toFixed(2)})`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: "مقدار" } },
+          x: { title: { display: true, text: "پارامترها" }, ticks: { autoSkip: false } }
+        }
+      }
+    });
+  }
+
+  async function exportToPDF() {
+    try {
+      const content = document.querySelector(".container");
+      const canvas = await html2canvas(content, { scale: 2 });
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      const imgWidth = 210;
+      const pageHeight = 297;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      const pdf = new jspdf.jsPDF('p', 'mm');
+      let position = 0;
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      const date = new Date().toLocaleDateString('fa-IR').replace(/\//g, '-');
+      pdf.save(`گزارش_مقایسه_${date}.pdf`);
+    } catch (error) {
+      console.error("خطا در ایجاد PDF:", error);
+      alert("خطا در ایجاد فایل PDF. لطفاً کنسول مرورگر را بررسی کنید.");
+    }
+  }
+
+  // Events
+  document.getElementById("start-process").addEventListener("click", () => {
+    document.getElementById("data-section").style.display = "none";
+    createDynamicTables();
+  });
+
+  document.getElementById("calculate-btn").addEventListener("click", () => {
+    const parameters = document.getElementById("test-name").value.split(",").map(p => p.trim());
+    const sampleCount = parseInt(document.getElementById("sample-count").value);
+    const { t: tCritical, f: fCritical } = criticalValues[sampleCount];
+    const op1Data = collectOperatorData("operator1-data", parameters);
+    const op2Data = collectOperatorData("operator2-data", parameters);
+    const stats = {};
+    parameters.forEach(param => {
+      if (op1Data[param].length && op2Data[param].length) {
+        stats[param] = calculateStatistics(op1Data[param], op2Data[param]);
+      }
+    });
+    if (Object.keys(stats).length === 0) {
+      alert("لطفاً داده‌های معتبر وارد کنید.");
+      return;
+    }
+    const op1Name = document.getElementById("operator1-name").value || "اپراتور 1";
+    const op2Name = document.getElementById("operator2-name").value || "اپراتور 2";
+    displayResults(op1Name, op2Name, stats, parameters, tCritical, fCritical);
+    createComparisonChart(op1Name, op2Name, stats, parameters);
+  });
+
+  document.getElementById("export-pdf").addEventListener("click", exportToPDF);
+ 
+</script>
+</body>
+</html>
