@@ -1,0 +1,112 @@
+
+@font-face {
+    font-family: 'vazir';
+    src: url(../font/Vazir-Thin-FD-WOL.eot),
+    url(../font/Vazir-Thin-FD-WOL.ttf),
+    url(../font/Vazir-Thin-FD-WOL.woff),
+    url(../font/Vazir-Thin-FD-WOL.woff2);
+}
+body{
+    font-family: 'vazir';
+}
+button{
+    font-family: 'vazir';
+}
+
+@media print {
+body {
+    font-size: 12pt;
+}
+table, .chart-container, .interpretation {
+    page-break-inside: avoid;
+}
+}
+
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  background-color: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+h1, h2, h3 {
+  text-align: center;
+  color: #2c3e50;
+}
+
+.form-section {
+  margin-bottom: 30px;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  border-left: 5px solid #3498db;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+input {
+  width: 100%;
+    padding: 12px; /* افزایش پدینگ عمودی */
+height: 45px; /* افزایش ارتفاع */
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-sizing: border-box;
+  text-align: right;
+  font-family: 'vazir';
+  font-size: 16px;
+  
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+th, td {
+  padding: 10px;
+  text-align: center;
+  border: 1px solid #ddd;
+}
+
+button {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  float: right;
+  margin-top: 10px;
+}
+
+button:hover {
+  background-color: #2980b9;
+}
+
+.chart-container {
+  width: 100%;
+  max-width: 800px;
+  margin: 20px auto;
+}
+
+.interpretation {
+  background-color: #fffde7;
+  padding: 15px;
+  border-radius: 8px;
+  border-left: 5px solid #ffc107;
+  margin-top: 20px;
+}
+
+@media (max-width: 768px) {
+  .operator-box {
+    min-width: 100%;
+  }
+}
